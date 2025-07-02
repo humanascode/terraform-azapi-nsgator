@@ -1,0 +1,13 @@
+# Example configuration - update these values for your deployment
+
+resource_group_name = "rg-nsgator-example"
+location           = "East US"
+environment        = "dev"
+admin_ip           = "203.0.113.1" # Replace with your actual public IP
+
+tags = {
+  Environment = "dev"
+  Project     = "NSGator-Example"
+  Owner       = "Platform-Team"
+  CreatedBy   = "Terraform"
+}
