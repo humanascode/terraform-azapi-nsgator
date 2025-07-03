@@ -326,31 +326,3 @@ resource "azapi_update_resource" "destination_nsg_tag" {
     }
   }
 }
-
-# TODO - fix the retryable error when creating multiple rules in the same NSG
-
-
-# output "locals_debug" {
-#   value = {
-#     source_nsg_name                      = local.source_nsg_name
-#     source_nsg_rg_name                   = local.source_nsg_rg_name
-#     destination_nsg_name                 = local.destination_nsg_name
-#     destination_nsg_rg_name              = local.destination_nsg_rg_name
-#     source_nsg_subscription_id           = local.source_nsg_subscription_id
-#     destination_nsg_subscription_id      = local.destination_nsg_subscription_id
-#     source_nsg_rules                     = local.source_nsg_rules
-#     source_nsg_has_rules                 = local.source_nsg_has_rules
-#     source_nsg_highest_priority          = local.source_nsg_highest_priority
-#     destination_nsg_rules                = local.destination_nsg_rules
-#     destination_nsg_has_rules            = local.destination_nsg_has_rules
-#     destination_nsg_highest_priority     = local.destination_nsg_highest_priority
-#     rules_with_existing_priority_source  = local.rules_with_existing_priority_source
-#     new_rules_source                     = local.new_rules_source
-#     new_rules_source_with_index          = local.new_rules_source_with_index
-#     rules_with_priority_source           = local.rules_with_priority_source
-#     rules_with_existing_priority_destination = local.rules_with_existing_priority_destination
-#     new_rules_destination_with_index     = local.new_rules_destination_with_index
-#     rules_with_priority_destination      = local.rules_with_priority_destination
-#     data_source_nsg = data.azapi_resource.source_nsg[0]
-#   }
-# }
