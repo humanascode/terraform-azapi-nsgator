@@ -8,7 +8,7 @@ A Terraform module for managing Network Security Group (NSG) rules in Azure with
 
 NSGator is a Terraform module that automates Azure NSG rule management by handling priority assignment, detecting duplicates, and ensuring consistent rule deployment across network security groups.
 
-Its input is a map of objcets, each object reprsents a connectivity path including source and destination IPs, ports, protocols, and a workload identifier. The module takes care of crerating inbound and outbound rules as needed and manages priorities intelligently to avoid conflicts and ensure zero-downtime updates.
+Its input is a map of objcets, each object reprsents a connectivity path including source and destination IPs, ports, protocols, and a workload identifier. The module takes care of creating inbound and outbound rules as needed and manages priorities intelligently to avoid conflicts and ensure zero-downtime updates.
 
 ## Who is it for?
 
