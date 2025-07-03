@@ -39,7 +39,7 @@ module "intranet_rules" {
 
 # NSGator Module - Internet Access (Internet -> Spoke1)
 module "internet_rules" {
-  source = "../../" # Path to the NSGator module
+  source = "humanascode/nsgator/azapi" # Path to the NSGator module
 
     providers = {
     azapi.source = azapi

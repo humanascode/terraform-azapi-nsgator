@@ -46,7 +46,7 @@ terraform {
 }
 
 module "nsg_rules" {
-  source = "git::https://github.com/humanascode/NSGator.git?ref=main"
+  source = "humanascode/nsgator/azapi"
 
   providers = {
     azapi.source      = azapi.source
