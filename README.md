@@ -2,7 +2,7 @@
 
 A Terraform module for managing Network Security Group (NSG) rules in Azure with intelligent priority assignment and duplicate detection.
 
-![NSGator Logo](images/nsgator.png)
+<img src="images/nsgator.png" alt="NSGator Logo" width="200"/>
 
 ## What is NSGator?
 
