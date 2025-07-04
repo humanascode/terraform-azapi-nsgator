@@ -253,7 +253,7 @@ resource "azapi_resource" "outbound" {
   }
 
   retry = {
-    error_message_regex = ["NotFound"]
+    error_message_regex = ["NotFound","AnotherOperationInProgress","RetryableError"]
     interval_seconds = 5
     randomization_factor = 0.5
     multiplier = 2
@@ -291,7 +291,7 @@ resource "azapi_resource" "inbound" {
     }
   }
     retry = {
-    error_message_regex = ["NotFound"]
+    error_message_regex = ["NotFound","AnotherOperationInProgress","RetryableError"]
     interval_seconds = 5
     randomization_factor = 0.5
     multiplier = 2

@@ -31,51 +31,14 @@ NSGator simplifies Azure NSG rule management by providing:
 
 ## Quick Start
 
-```hcl
+For a complete working example, see the [basic example](examples/basic-example/main.tf) in the examples directory.
 
-provider "azapi" {
-}
+Just:
+- Copy the main.tf file
+- Update your subscription ID under the `azurerm` provider block
+- Run `terraform init` to initialize the module
+- Run `terraform apply` to create the NSG rules
 
-terraform {
-    required_providers {
-        azapi = {
-        source  = "Azure/azapi"
-        version = "~> 2.0"
-        }
-    }
-}
-
-module "nsg_rules" {
-  source = "humanascode/nsgator/azapi"
-
-  providers = {
-    azapi.source      = azapi.source
-    azapi.destination = azapi.destination
-  }
-  
-  source_nsg_id      = azurerm_network_security_group.source.id
-  destination_nsg_id = azurerm_network_security_group.destination.id
-  
-  priority_range = {
-    source_start      = 1000
-    source_end        = 1100
-    destination_start = 2000
-    destination_end   = 2100
-  }
-  
-  rules = {
-    "web-traffic" = {
-      access          = "Allow"
-      source_ips      = ["10.1.1.0/24"]
-      destination_ips = ["10.2.1.0/24"]
-      ports           = ["80"]
-      protocol        = "Tcp"
-      workload        = "web"
-    }
-  }
-}
-
-```
 
 ## Rule Naming Convention
 
@@ -167,6 +130,7 @@ providers {
 ## Examples
 
 For complete examples, see the `examples/` directory:
+- `examples/basic-example/` - Simple single configuration example
 - `examples/hub-spoke-nsg-rules/` - Multi-tier architecture example
 
 ## Contributing
