@@ -21,3 +21,5 @@ terraform.rc
 
 provider_local.tf
 *.lock.hcl
+
+tests/
