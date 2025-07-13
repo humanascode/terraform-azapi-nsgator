@@ -28,10 +28,16 @@ variable "create_inbound_rules" {
   description = "Flag to create inbound rules."
   type        = bool
   default     = true
-    validation {
-        condition     = var.create_inbound_rules ? (var.destination_nsg_id != null ? true : false) : true
-        error_message = "Inbound rules can only be created if destination_nsg_id is provided."
-    }
+  validation {
+    condition     = var.create_inbound_rules ? (var.destination_nsg_id != null ? true : false) : true
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+Inbound rules can only be created if destination_nsg_id is provided.
+Provide a valid destination_nsg_id to create inbound rules.
+OR
+Set create_inbound_rules to false if you do not want to create inbound rules.
+      ERROR
+  }
 }
 
 variable "rules" {
@@ -45,6 +51,18 @@ variable "rules" {
     workload          = string
     source_port_range = optional(string, "*")
   }))
+
+  validation {
+    condition = (
+      length(var.rules) == length(distinct([
+        for rule in values(var.rules) : rule.workload
+      ]))
+    )
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  Each rule must have a unique workload value. Duplicate workload names are not allowed.
+  ERROR
+  }
 }
 
 variable "priority_range" {
@@ -74,5 +92,21 @@ variable "priority_range" {
       var.priority_range.destination_start < var.priority_range.destination_end
     ) : true
     error_message = "priority_range.destination_start must be less than priority_range.destination_end."
+  }
+}
+
+variable "create_fw_rules" {
+  description = "Flag to create firewall rules."
+  type        = bool
+  default     = false
+}
+
+variable "azure_fw_rule_collection_group_id" {
+  description = "The ID of the Azure Firewall Rule Collection Group to associate with the rules."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.create_fw_rules ? (var.azure_fw_rule_collection_group_id != null) : true
+    error_message = "azure_fw_rule_collection_group_id must be provided if create_fw_rules is true."
   }
 }

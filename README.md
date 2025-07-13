@@ -45,6 +45,7 @@ Just:
 The module automatically prefixes rule names based on direction:
 - **Outbound rules** (source NSG): `outbound-${workload}-${protocol}` (e.g., `outbound-web-Tcp`)
 - **Inbound rules** (destination NSG): `inbound-${workload}-${protocol}` (e.g., `inbound-web-Tcp`)
+- The `workload` property must be unique across all rules to avoid conflicts
 
 This naming convention helps identify rule direction and purpose at a glance.
 
@@ -54,6 +55,9 @@ This naming convention helps identify rule direction and purpose at a glance.
 2. **New Rules**: Assigned sequential priorities starting from the highest existing priority + 1
 3. **Range Validation**: New rules are only created if they fall within the specified priority range
 4. **Error Handling**: Rules that would exceed the priority range are skipped with an error message
+
+## Special Behaviors
+- **Range Changes**: changes to the range will not result in rule removal, rather it will only affect new rules. To remove rules in any range, simply delete the rules from the `rules` map.
 
 
 ## Configuration Reference
