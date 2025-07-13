@@ -11,19 +11,26 @@ locals {
   ############################# Finding the highest priority for source NSG ###############################
   source_nsg_rules     = try(data.azapi_resource.source_nsg[0].output.properties.securityRules, [])
   source_nsg_has_rules = length(local.source_nsg_rules) > 0
+  source_nsg_rules_in_range = local.source_nsg_has_rules ? [
+    for rule in local.source_nsg_rules : rule.properties.priority if rule.properties.priority >= var.priority_range.source_start && rule.properties.priority <= var.priority_range.source_end
+  ] : []
+
   source_nsg_highest_priority = (
-    local.source_nsg_has_rules
-    ? max([for rule in local.source_nsg_rules : rule.properties.priority if rule.properties.priority >= var.priority_range.source_start && rule.properties.priority <= var.priority_range.source_end ]...)
-    : try((var.priority_range.source_start - 1) , null)
+    local.source_nsg_rules_in_range != []
+    ? max(local.source_nsg_rules_in_range...)
+    : try((var.priority_range.source_start - 1), null)
   )
   ############################# Finding the highest priority for destination NSG ##############################
   destination_nsg_rules     = try(data.azapi_resource.destination_nsg[0].output.properties.securityRules, [])
   destination_nsg_has_rules = length(local.destination_nsg_rules) > 0
+  destination_nsg_rules_in_range = local.destination_nsg_has_rules ? [
+    for rule in local.destination_nsg_rules : rule.properties.priority if rule.properties.priority >= var.priority_range.destination_start && rule.properties.priority <= var.priority_range.destination_end
+  ] : []
 
   destination_nsg_highest_priority = (
-    local.destination_nsg_has_rules
-    ? max([for rule in local.destination_nsg_rules : rule.properties.priority if rule.properties.priority >= var.priority_range.destination_start && rule.properties.priority <= var.priority_range.destination_end ]...)
-    : try((var.priority_range.destination_start - 1) , null)
+    local.destination_nsg_rules_in_range != []
+    ? max(local.destination_nsg_rules_in_range...)
+    : try((var.priority_range.destination_start - 1), null)
   )
 }
 
@@ -166,17 +173,17 @@ locals {
   }
 
   new_rules_destination = {
-  for k, v in local.rules_with_existing_priority_destination : k => v if v.priority == null
-}
+    for k, v in local.rules_with_existing_priority_destination : k => v if v.priority == null
+  }
 
   # Creating an index for new rules to be able to calculate their priority
-new_rules_destination_with_index = {
-  for idx, k in zipmap(range(length(keys(local.new_rules_destination))), keys(local.new_rules_destination)) :
-  k => merge(
-    local.new_rules_destination[k],
-    { index = idx }
-  )
-}
+  new_rules_destination_with_index = {
+    for idx, k in zipmap(range(length(keys(local.new_rules_destination))), keys(local.new_rules_destination)) :
+    k => merge(
+      local.new_rules_destination[k],
+      { index = idx }
+    )
+  }
 
   ### Finally, this is the map of rules with assigned priorities for the destination NSG to be created or updated ###
   # This will assign a priority to each rule based on the index of the new rules and
@@ -207,9 +214,9 @@ new_rules_destination_with_index = {
               lower(existing.properties.access) == lower(v.access) &&
               lower(existing.properties.sourcePortRange) == lower(v.source_port_range)
             ][0],
-          # If not found, assign a new priority if it's in range, else null
-          (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1) <= var.priority_range.destination_end &&
-          (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1) >= var.priority_range.destination_start
+            # If not found, assign a new priority if it's in range, else null
+            (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1) <= var.priority_range.destination_end &&
+            (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1) >= var.priority_range.destination_start
             ? (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1)
             : null, null
           )
@@ -230,17 +237,17 @@ resource "azapi_resource" "outbound" {
   parent_id = var.source_nsg_id
 
   body = {
-    
+
     properties = {
-      
-      priority                    = each.value.priority
-      direction                   = "Outbound"
-      access                      = each.value.access
-      protocol                    = each.value.protocol
-      sourcePortRange             = each.value.source_port_range
-      destinationPortRanges       = each.value.ports
-      sourceAddressPrefixes       = each.value.source_ips
-      destinationAddressPrefixes  = each.value.destination_ips
+
+      priority                   = each.value.priority
+      direction                  = "Outbound"
+      access                     = each.value.access
+      protocol                   = each.value.protocol
+      sourcePortRange            = each.value.source_port_range
+      destinationPortRanges      = each.value.ports
+      sourceAddressPrefixes      = each.value.source_ips
+      destinationAddressPrefixes = each.value.destination_ips
     }
   }
 
@@ -253,12 +260,12 @@ resource "azapi_resource" "outbound" {
   }
 
   retry = {
-    error_message_regex = ["NotFound","AnotherOperationInProgress","RetryableError"]
-    interval_seconds = 5
+    error_message_regex  = ["NotFound", "AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
+    interval_seconds     = 5
     randomization_factor = 0.5
-    multiplier = 2
+    multiplier           = 2
   }
-  
+
 }
 
 resource "azapi_resource" "inbound" {
@@ -272,14 +279,14 @@ resource "azapi_resource" "inbound" {
 
   body = {
     properties = {
-      priority                    = each.value.priority
-      direction                   = "Inbound"
-      access                      = each.value.access
-      protocol                    = each.value.protocol
-      sourcePortRange             = each.value.source_port_range
-      destinationPortRanges       = each.value.ports
-      sourceAddressPrefixes       = each.value.source_ips
-      destinationAddressPrefixes  = each.value.destination_ips
+      priority                   = each.value.priority
+      direction                  = "Inbound"
+      access                     = each.value.access
+      protocol                   = each.value.protocol
+      sourcePortRange            = each.value.source_port_range
+      destinationPortRanges      = each.value.ports
+      sourceAddressPrefixes      = each.value.source_ips
+      destinationAddressPrefixes = each.value.destination_ips
     }
   }
 
@@ -290,12 +297,18 @@ resource "azapi_resource" "inbound" {
       error_message = "Priority is out of range or not assigned for rule: ${each.value.workload}."
     }
   }
-    retry = {
-    error_message_regex = ["NotFound","AnotherOperationInProgress","RetryableError"]
-    interval_seconds = 5
+  retry = {
+    error_message_regex  = ["NotFound", "AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
+    interval_seconds     = 5
     randomization_factor = 0.5
-    multiplier = 2
+    multiplier           = 2
   }
+}
+
+locals {
+  flow_tag_source      = coalesce(local.source_nsg_name, "NoSourceNSG")
+  flow_tag_destination = coalesce(local.destination_nsg_name, "NoDestinationNSG")
+  flow_tag             = "${local.flow_tag_source}-${local.flow_tag_destination}"
 }
 
 
@@ -308,9 +321,10 @@ resource "azapi_update_resource" "source_nsg_tag" {
   # Tags will be merged with existing
   body = {
     tags = {
-      managed_by_terraform_outbound_priority_range = "${var.priority_range.source_start}-${var.priority_range.source_end}"
+      "managed_by_terraform_outbound_priority_range_${local.flow_tag}" = "${var.priority_range.source_start}-${var.priority_range.source_end}"
     }
   }
+  depends_on = [azapi_resource.outbound]
 }
 
 
@@ -322,7 +336,8 @@ resource "azapi_update_resource" "destination_nsg_tag" {
 
   body = {
     tags = {
-      managed_by_terraform_inbound_priority_range = "${var.priority_range.destination_start}-${var.priority_range.destination_end}"
+      "managed_by_terraform_inbound_priority_range_${local.flow_tag}" = "${var.priority_range.destination_start}-${var.priority_range.destination_end}"
     }
   }
+  depends_on = [azapi_resource.inbound]
 }
