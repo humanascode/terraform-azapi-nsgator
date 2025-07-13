@@ -94,19 +94,3 @@ variable "priority_range" {
     error_message = "priority_range.destination_start must be less than priority_range.destination_end."
   }
 }
-
-variable "create_fw_rules" {
-  description = "Flag to create firewall rules."
-  type        = bool
-  default     = false
-}
-
-variable "azure_fw_rule_collection_group_id" {
-  description = "The ID of the Azure Firewall Rule Collection Group to associate with the rules."
-  type        = string
-  default     = null
-  validation {
-    condition     = var.create_fw_rules ? (var.azure_fw_rule_collection_group_id != null) : true
-    error_message = "azure_fw_rule_collection_group_id must be provided if create_fw_rules is true."
-  }
-}
