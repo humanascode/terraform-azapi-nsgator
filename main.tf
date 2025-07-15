@@ -341,3 +341,51 @@ resource "azapi_update_resource" "destination_nsg_tag" {
   }
   depends_on = [azapi_resource.inbound]
 }
+
+locals {
+  # Extract the firewall policy name and rule collection group name from their IDs
+  firewall_policy_id = try(join("/", slice(split("/", var.azure_fw_rule_collection_group_id), 0, 9)), null)
+  rule_collection_group_name = try(split("/", var.azure_fw_rule_collection_group_id)[length(split("/", var.azure_fw_rule_collection_group_id)) - 1], null)
+}
+
+data "azapi_resource" "rule_collection_group" {
+  type                   = "Microsoft.Network/firewallPolicies/ruleCollectionGroups@2024-07-01"
+  # resource_id            = var.azure_fw_rule_collection_group_id
+  name = local.rule_collection_group_name
+  parent_id              = local.firewall_policy_id
+  response_export_values = ["properties.ruleCollections"]
+}
+
+locals {
+  ############################# Finding the highest priority for source NSG ###############################
+  fw_policy_rule_collections    = try(data.azapi_resource.rule_collection_group.output.properties.ruleCollections, [])
+  fw_policy_has_rule_collections = length(local.fw_policy_rule_collections) > 0
+  fw_policy_rule_collection_highest_priority = (
+    local.fw_policy_has_rule_collections
+    ? max([for rule in local.fw_policy_rule_collections : rule.priority]...) < 999
+    ? max([for rule in local.fw_policy_rule_collections : rule.priority]...) : 999
+    : 999
+  )
+
+  # TODO: Discover the next available priority for the rule collection, create the rule collection, configure it to ignore changes in its priority.
+  # go on to create the rules. no need to compare them since they dont have a priority.
+
+}
+
+
+
+output "rcg" {
+  value = data.azapi_resource.rule_collection_group
+  description = "Rule collections in the Azure Firewall Policy Rule Collection Group"
+  
+}
+
+output "firewall_policy_id" {
+  value       = local.firewall_policy_id
+  description = "Extracted Firewall Policy ID"
+}
+
+output "rule_collection_group_name" {
+  value       = local.rule_collection_group_name
+  description = "Extracted Rule Collection Group Name"
+}
