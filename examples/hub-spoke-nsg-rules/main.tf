@@ -1,10 +1,10 @@
 # NSGator Module - Intranet Communication (Spoke1 <-> Spoke2)
 module "intranet_rules" {
-  source = "../../" # Path to the NSGator module
+  source = "humanascode/nsgator/azapi" # Path to the NSGator module
 
   providers = {
-    azapi.source = azapi
-    azapi.destination = azapi
+    azapi.source = azapi.source
+    azapi.destination = azapi.destination
   }
 
   source_nsg_id      = azurerm_network_security_group.spoke1.id
@@ -42,8 +42,8 @@ module "internet_rules" {
   source = "humanascode/nsgator/azapi" # Path to the NSGator module
 
     providers = {
-    azapi.source = azapi
-    azapi.destination = azapi
+    azapi.source = azapi.source
+    azapi.destination = azapi.destination
   }
 
   destination_nsg_id = azurerm_network_security_group.spoke1.id

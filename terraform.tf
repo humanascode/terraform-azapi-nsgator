@@ -7,4 +7,5 @@ terraform {
       configuration_aliases = [azapi.source, azapi.destination]
     }
   }
+  required_version = ">= 1.12"
 }

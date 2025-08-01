@@ -26,7 +26,7 @@ NSGator simplifies Azure NSG rule management by providing:
 
 | Name | Version |
 |------|---------|
-| terraform | >= 1.0 |
+| terraform | >= 1.12 |
 | azapi | >= 2.0 |
 
 ## Quick Start

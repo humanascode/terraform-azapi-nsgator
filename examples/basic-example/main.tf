@@ -1,10 +1,21 @@
+# Explicitly define aliases for source and destination providers.
 
 provider "azapi" {
+  alias = "source"
+  # Use the follwing line if you want to specify a subscription ID for the source provider
+  #subscription_id = "xxxxxxxxxxxxxxxxxx" # Replace with your Azure subscription ID
+}
+
+provider "azapi" {
+  alias = "destination"
+  # Use the follwing line if you want to specify a subscription ID for the destination provider
+  #subscription_id = "xxxxxxxxxxxxxxxxxx" # Replace with your Azure subscription ID
 }
 
 provider "azurerm" {
   features {}
   subscription_id = "xxxxxxxxxxxxxxxxxx" # Replace with your Azure subscription ID
+  
   
 }
 
@@ -14,7 +25,12 @@ terraform {
       source  = "Azure/azapi"
       version = "~> 2.0"
     }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
   }
+  required_version = ">= 1.12"
 }
 
 resource "azapi_resource" "rg" {
@@ -81,8 +97,8 @@ module "nsg_rules" {
   source = "humanascode/nsgator/azapi"
 
   providers = {
-    azapi.source      = azapi
-    azapi.destination = azapi
+    azapi.source      = azapi.source
+    azapi.destination = azapi.destination
   }
 
   source_nsg_id      = azurerm_network_security_group.nsg1.id
