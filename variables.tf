@@ -41,16 +41,32 @@ Set create_inbound_rules to false if you do not want to create inbound rules.
 }
 
 variable "rules" {
-  description = "Map of rules to create."
+  description = <<DESCRIPTION
+  Map of rules to create.
+  Each rule must have a unique workload value.
+  If protocol is "Icmp", ports must not be specified.
+  If protocol is not "Icmp", ports must be specified.
+DESCRIPTION
   type = map(object({
     access            = optional(string, "Allow")
     source_ips        = set(string)
     destination_ips   = set(string)
-    ports             = set(string)
+    ports             = optional(set(string))
     protocol          = string
     workload          = string
     source_port_range = optional(string, "*")
   }))
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        contains(["Tcp", "Udp", "Icmp", "Esp", "Ah", "*"], rule.protocol)
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  Protocol must be one of: "Tcp", "Udp", "Icmp", "Esp", "Ah", or "*".
+  ERROR
+  }
 
   validation {
     condition = (
@@ -63,6 +79,22 @@ variable "rules" {
   Each rule must have a unique workload value. Duplicate workload names are not allowed.
   ERROR
   }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          lower(rule.protocol) == "icmp" ?
+            (rule.ports == null || length(rule.ports) == 0) :
+            (rule.ports != null && length(rule.ports) > 0)
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If protocol is "Icmp", ports must not be specified.
+  If protocol is not "Icmp", ports must be specified.
+  ERROR
+  }
 }
 
 variable "priority_range" {
@@ -73,24 +105,60 @@ variable "priority_range" {
     destination_end   = optional(number, 0)
   })
   nullable = false
+  description = <<DESCRIPTION
+  Priority range for the NSG rules.
+  This defines the allowed priority range for the NSG rules to be created or updated.
+  The priority range must be within the valid range of 100 to 4096.
+DESCRIPTION
+
   validation {
     condition     = var.source_nsg_id != null ? (var.priority_range.source_start != null && var.priority_range.source_end != null) : true
-    error_message = "When source_nsg_id is provided, priority_range.source_start and priority_range.source_end must be specified."
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+When source_nsg_id is provided, priority_range.source_start and priority_range.source_end must be specified.
+ERROR
   }
   validation {
     condition     = var.destination_nsg_id != null ? (var.priority_range.destination_start != null && var.priority_range.destination_end != null) : true
-    error_message = "When destination_nsg_id is provided, priority_range.destination_start and priority_range.destination_end must be specified."
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+When destination_nsg_id is provided, priority_range.destination_start and priority_range.destination_end must be specified.
+ERROR
   }
   validation {
     condition = var.source_nsg_id != null ? (
       var.priority_range.source_start < var.priority_range.source_end
     ) : true
-    error_message = "priority_range.source_start must be less than priority_range.source_end."
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+priority_range.source_start must be less than priority_range.source_end.
+ERROR
   }
   validation {
     condition = var.destination_nsg_id != null ? (
       var.priority_range.destination_start < var.priority_range.destination_end
     ) : true
-    error_message = "priority_range.destination_start must be less than priority_range.destination_end."
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+priority_range.destination_start must be less than priority_range.destination_end.
+ERROR
+  }
+  validation {
+    condition = var.source_nsg_id != null ? (
+      (var.priority_range.source_start >= 100 && var.priority_range.source_start <= 4096) && (var.priority_range.source_end >= 100 && var.priority_range.source_end <= 4096)
+    ) : true
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+priority_range.source_start and priority_range.source_end must be between 100 and 4096, inclusive.
+ERROR
+  }
+  validation {
+    condition = var.destination_nsg_id != null ? (
+      (var.priority_range.destination_start >= 100 && var.priority_range.destination_start <= 4096) && (var.priority_range.destination_end >= 100 && var.priority_range.destination_end <= 4096)
+    ) : true
+    error_message = <<ERROR
+*********************VALIDATION ERROR*********************
+priority_range.destination_start and priority_range.destination_end must be between 100 and 4096, inclusive.
+ERROR
   }
 }

@@ -245,7 +245,8 @@ resource "azapi_resource" "outbound" {
       access                     = each.value.access
       protocol                   = each.value.protocol
       sourcePortRange            = each.value.source_port_range
-      destinationPortRanges      = each.value.ports
+      destinationPortRanges      = each.value.protocol == "Icmp" ? [] : each.value.ports
+      destinationPortRange       = each.value.protocol == "Icmp" ? "*" : null
       sourceAddressPrefixes      = each.value.source_ips
       destinationAddressPrefixes = each.value.destination_ips
     }
@@ -284,7 +285,8 @@ resource "azapi_resource" "inbound" {
       access                     = each.value.access
       protocol                   = each.value.protocol
       sourcePortRange            = each.value.source_port_range
-      destinationPortRanges      = each.value.ports
+      destinationPortRanges      = each.value.protocol == "Icmp" ? [] : each.value.ports
+      destinationPortRange       = each.value.protocol == "Icmp" ? "*" : null
       sourceAddressPrefixes      = each.value.source_ips
       destinationAddressPrefixes = each.value.destination_ips
     }
