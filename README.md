@@ -56,8 +56,16 @@ This naming convention helps identify rule direction and purpose at a glance.
 3. **Range Validation**: New rules are only created if they fall within the specified priority range
 4. **Error Handling**: Rules that would exceed the priority range are skipped with an error message
 
-## Special Behaviors
-- **Range Changes**: changes to the range will not result in rule removal, rather it will only affect new rules. To remove rules in any range, simply delete the rules from the `rules` map.
+## Validation and Error Handling
+
+The module includes comprehensive validation to catch common configuration errors:
+
+- **Required Fields**: Validates that at least one NSG ID is provided
+- **Priority Ranges**: Ensures priority ranges are between 100-4096 and source_start < source_end
+- **Protocol Validation**: Checks that protocol is one of the supported values
+- **Unique Workloads**: Prevents duplicate workload names across all rules
+- **Port Requirements**: Validates that ports are specified for non-ICMP protocols and omitted for ICMP
+- **Detailed Error Messages**: Provides clear, actionable error messages with visual formatting for easy identification
 
 
 ## Configuration Reference
@@ -69,7 +77,7 @@ This naming convention helps identify rule direction and purpose at a glance.
 | destination_nsg_id    | The ID of the destination NSG                                     | `string`                                                             | `null`  |  no\*    |
 | create_outbound_rules | Flag to create outbound rules                                      | `bool`                                                               | `true`  |   no     |
 | create_inbound_rules  | Flag to create inbound rules                                       | `bool`                                                               | `true`  |   no     |
-| rules                 | Map of rules to create                                             | <pre>map(object({<br>  access            = optional(string, "Allow")<br>  source_ips        = set(string)<br>  destination_ips   = set(string)<br>  ports             = set(string)<br>  protocol          = string<br>  workload          = string<br>  source_port_range = optional(string, "*")<br>}))</pre> | n/a     |   yes    |
+| rules                 | Map of rules to create                                             | <pre>map(object({<br>  access            = optional(string, "Allow")<br>  source_ips        = set(string)<br>  destination_ips   = set(string)<br>  ports             = optional(set(string))<br>  protocol          = string<br>  workload          = string<br>  source_port_range = optional(string, "*")<br>}))</pre> | n/a     |   yes    |
 | priority_range        | Priority ranges for source and destination NSGs                   | <pre>object({<br>  source_start      = optional(number, 0)<br>  source_end        = optional(number, 0)<br>  destination_start = optional(number, 0)<br>  destination_end   = optional(number, 0)<br>})</pre> | n/a     |   yes    |
 
 \*At least one of `source_nsg_id` or `destination_nsg_id` must be provided.
@@ -78,10 +86,10 @@ This naming convention helps identify rule direction and purpose at a glance.
 
 ```hcl
 priority_range = {
-  source_start      = optional(number, 0)  # Start of priority range for source NSG (required if source_nsg_id is provided)
-  source_end        = optional(number, 0)  # End of priority range for source NSG (required if source_nsg_id is provided)
-  destination_start = optional(number, 0)  # Start of priority range for destination NSG (required if destination_nsg_id is provided)
-  destination_end   = optional(number, 0)  # End of priority range for destination NSG (required if destination_nsg_id is provided)
+  source_start      = optional(number, 0)  # Start of priority range for source NSG (required if source_nsg_id is provided, must be 100-4096)
+  source_end        = optional(number, 0)  # End of priority range for source NSG (required if source_nsg_id is provided, must be 100-4096)
+  destination_start = optional(number, 0)  # Start of priority range for destination NSG (required if destination_nsg_id is provided, must be 100-4096)
+  destination_end   = optional(number, 0)  # End of priority range for destination NSG (required if destination_nsg_id is provided, must be 100-4096)
 }
 ```
 
@@ -93,13 +101,28 @@ rules = {
     access            = "Allow"                       # Allow or Deny (optional, defaults to Allow)
     source_ips        = ["10.1.1.0/24", "10.1.2.10"] # Set of source IP addresses/CIDR ranges
     destination_ips   = ["10.2.1.0/24", "10.2.2.20"] # Set of destination IP addresses/CIDR ranges
-    ports             = ["80", "443"]                 # Set of destination ports
+    ports             = ["80", "443"]                 # Set of destination ports (optional for ICMP protocol)
     protocol          = "Tcp"                         # Protocol: Tcp, Udp, Icmp, Esp, Ah, or *
-    workload          = "web"                         # Workload identifier for rule naming
+    workload          = "web"                         # Workload identifier for rule naming (must be unique)
     source_port_range = "*"                           # Source port range (optional, defaults to "*")
+  }
+  
+  # Example ICMP rule (ports not required)
+  "ping" = {
+    source_ips      = ["10.1.1.0/24"]
+    destination_ips = ["10.2.1.0/24"]
+    protocol        = "Icmp"
+    workload        = "ping"
+    access          = "Allow"
   }
 }
 ```
+
+**Important Notes:**
+- Each rule must have a **unique** `workload` value
+- For ICMP protocol, `ports` should not be specified (will be ignored)
+- For all other protocols, `ports` must be specified
+- Protocol values are case-sensitive: use "Tcp", "Udp", "Icmp", "Esp", "Ah", or "*"
 
 ## Outputs
 
@@ -115,8 +138,10 @@ These tags help identify which priority ranges are managed by Terraform and prev
 
 ## Limitations
 
-- **Multiple Ports**: Supports multiple destination ports per rule
-- **Priority Ranges**: Rules are skipped if they would exceed the configured priority range
+- **Priority Ranges**: Rules are skipped if they would exceed the configured priority range (100-4096)
+- **Unique Workloads**: Each rule must have a unique workload identifier
+- **Protocol-Specific Ports**: ICMP rules don't require ports; all other protocols do
+- **Cross-Subscription**: Requires proper provider configuration for cross-subscription deployments
 
 ## Cross-Subscription deployment
 - NSGs can be deployed across different subscriptions, when calling the module, provide 2 providers in the module block:
