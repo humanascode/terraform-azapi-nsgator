@@ -49,14 +49,103 @@ variable "rules" {
 DESCRIPTION
   type = map(object({
     access            = optional(string, "Allow")
-    source_ips        = set(string)
-    destination_ips   = set(string)
+    source_ips        = optional(set(string))
+    destination_ips   = optional(set(string))
     ports             = optional(set(string))
+    destination_service_tag = optional(string, null)
     protocol          = string
     workload          = string
     source_port_range = optional(string, "*")
+    source_service_tag = optional(string, null)
   }))
 
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.source_service_tag != null ? var.source_nsg_id == null : true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If source_service_tag is provided, source_nsg_id must not be provided.
+  ERROR
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.destination_service_tag != null ? var.destination_nsg_id == null : true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If destination_service_tag is provided, destination_nsg_id must not be provided.
+  ERROR
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.destination_service_tag != null ?
+            (rule.destination_ips == null || length(rule.destination_ips) == 0) :
+            true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If destination_service_tag is provided, destination ips must not be specified.
+  ERROR
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.source_service_tag == null ?
+            (rule.source_ips != null && length(rule.source_ips) > 0) :
+            true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If source_service_tag is provided, source_ips must not be specified.
+  ERROR
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.source_service_tag != null ?
+            (rule.source_ips == null || length(rule.source_ips) == 0) :
+            true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If source_service_tag is provided, source_ips must not be specified.
+  ERROR
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.rules) :
+        (
+          rule.source_service_tag == null ?
+            (rule.source_ips != null && length(rule.source_ips) > 0) :
+            true
+        )
+    ])
+    error_message = <<ERROR
+  *********************VALIDATION ERROR*********************
+  If source_service_tag is not provided, source_ips must be specified.
+  ERROR
+  }
+
+  
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
