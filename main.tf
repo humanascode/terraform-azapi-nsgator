@@ -64,24 +64,28 @@ locals {
             for existing in local.source_nsg_rules :
             existing.properties.priority
             if existing.name == "outbound-${v.workload}-${v.protocol}" &&
-            length(existing.properties.sourceAddressPrefixes) == length(v.source_ips) &&
-            length(setsubtract(existing.properties.sourceAddressPrefixes, v.source_ips)) == 0 &&
-            length(setsubtract(v.source_ips, existing.properties.sourceAddressPrefixes)) == 0 &&
-            length(existing.properties.destinationAddressPrefixes) == length(v.destination_ips) &&
-            length(setsubtract(existing.properties.destinationAddressPrefixes, v.destination_ips)) == 0 &&
-            length(setsubtract(v.destination_ips, existing.properties.destinationAddressPrefixes)) == 0 &&
-            length(existing.properties.destinationPortRanges) == length(v.ports) &&
-            length(setsubtract(existing.properties.destinationPortRanges, v.ports)) == 0 &&
-            length(setsubtract(v.ports, existing.properties.destinationPortRanges)) == 0 &&
-            lower(existing.properties.protocol) == lower(v.protocol) &&
-            lower(existing.properties.access) == lower(v.access) &&
-            lower(existing.properties.sourcePortRange) == lower(v.source_port_range)
+            length(try(existing.properties.sourceAddressPrefixes, [])) == length(coalescelist(v.source_ips, [])) &&
+            length(setsubtract(try(existing.properties.sourceAddressPrefixes, []), coalescelist(v.source_ips, []))) == 0 &&
+            length(setsubtract(coalescelist(v.source_ips, []), try(existing.properties.sourceAddressPrefixes, []))) == 0 &&
+            length(try(existing.properties.destinationAddressPrefixes, [])) == length(coalescelist(v.destination_ips, [])) &&
+            length(setsubtract(try(existing.properties.destinationAddressPrefixes, []), coalescelist(v.destination_ips, []))) == 0 &&
+            length(setsubtract(coalescelist(v.destination_ips, []), try(existing.properties.destinationAddressPrefixes, []))) == 0 &&
+            length(try(existing.properties.destinationPortRanges, [])) == length(coalescelist(v.ports, [])) &&
+            length(setsubtract(try(existing.properties.destinationPortRanges, []), coalescelist(v.ports, []))) == 0 &&
+            length(setsubtract(coalescelist(v.ports, []), try(existing.properties.destinationPortRanges, []))) == 0 &&
+            lower(try(existing.properties.protocol, "")) == lower(v.protocol) &&
+            lower(try(existing.properties.access, "")) == lower(v.access) &&
+            lower(try(existing.properties.sourcePortRange, "")) == lower(v.source_port_range) &&
+            (lower(v.protocol) == "icmp" ? lower(try(existing.properties.destinationPortRange, "")) == "*" : true) &&
+            (v.destination_service_tag != null ? lower(try(existing.properties.destinationAddressPrefix, "")) == lower(v.destination_service_tag) : true)
+
           ][0],
           null
         )
       }
     )
   }
+
 
 
   # detecting new rules that do not have a priority assigned yet
@@ -115,18 +119,20 @@ locals {
               for existing in local.source_nsg_rules :
               existing.properties.priority
               if existing.name == "outbound-${v.workload}-${v.protocol}" &&
-              length(existing.properties.sourceAddressPrefixes) == length(v.source_ips) &&
-              length(setsubtract(existing.properties.sourceAddressPrefixes, v.source_ips)) == 0 &&
-              length(setsubtract(v.source_ips, existing.properties.sourceAddressPrefixes)) == 0 &&
-              length(existing.properties.destinationAddressPrefixes) == length(v.destination_ips) &&
-              length(setsubtract(existing.properties.destinationAddressPrefixes, v.destination_ips)) == 0 &&
-              length(setsubtract(v.destination_ips, existing.properties.destinationAddressPrefixes)) == 0 &&
-              length(existing.properties.destinationPortRanges) == length(v.ports) &&
-              length(setsubtract(existing.properties.destinationPortRanges, v.ports)) == 0 &&
-              length(setsubtract(v.ports, existing.properties.destinationPortRanges)) == 0 &&
-              lower(existing.properties.protocol) == lower(v.protocol) &&
-              lower(existing.properties.access) == lower(v.access) &&
-              lower(existing.properties.sourcePortRange) == lower(v.source_port_range)
+              length(try(existing.properties.sourceAddressPrefixes, [])) == length(coalescelist(v.source_ips, [])) &&
+              length(setsubtract(try(existing.properties.sourceAddressPrefixes, []), coalescelist(v.source_ips, []))) == 0 &&
+              length(setsubtract(coalescelist(v.source_ips, []), try(existing.properties.sourceAddressPrefixes, []))) == 0 &&
+              length(try(existing.properties.destinationAddressPrefixes, [])) == length(coalescelist(v.destination_ips, [])) &&
+              length(setsubtract(try(existing.properties.destinationAddressPrefixes, []), coalescelist(v.destination_ips, []))) == 0 &&
+              length(setsubtract(coalescelist(v.destination_ips, []), try(existing.properties.destinationAddressPrefixes, []))) == 0 &&
+              length(try(existing.properties.destinationPortRanges, [])) == length(coalescelist(v.ports, [])) &&
+              length(setsubtract(try(existing.properties.destinationPortRanges, []), coalescelist(v.ports, []))) == 0 &&
+              length(setsubtract(coalescelist(v.ports, []), try(existing.properties.destinationPortRanges, []))) == 0 &&
+              lower(try(existing.properties.protocol, "")) == lower(v.protocol) &&
+              lower(try(existing.properties.access, "")) == lower(v.access) &&
+              lower(try(existing.properties.sourcePortRange, "")) == lower(v.source_port_range) &&
+              (lower(v.protocol) == "icmp" ? lower(try(existing.properties.destinationPortRange, "")) == "*" : true) &&
+              (v.destination_service_tag != null ? lower(try(existing.properties.destinationAddressPrefix, "")) == lower(v.destination_service_tag) : true)
             ][0],
             # If not found, assign a new priority if in range; else, null
             (local.new_rules_source_with_index[k].index + local.source_nsg_highest_priority + 1) <= var.priority_range.source_end &&
@@ -152,19 +158,21 @@ locals {
             for existing in local.destination_nsg_rules :
             existing.properties.priority
             if existing.name == "inbound-${v.workload}-${v.protocol}" &&
-            length(existing.properties.sourceAddressPrefixes) == length(v.source_ips) &&
-            length(setsubtract(existing.properties.sourceAddressPrefixes, v.source_ips)) == 0 &&
-            length(setsubtract(v.source_ips, existing.properties.sourceAddressPrefixes)) == 0 &&
-            length(existing.properties.destinationAddressPrefixes) == length(v.destination_ips) &&
-            length(setsubtract(existing.properties.destinationAddressPrefixes, v.destination_ips)) == 0 &&
-            length(setsubtract(v.destination_ips, existing.properties.destinationAddressPrefixes)) == 0 &&
+            length(try(existing.properties.sourceAddressPrefixes, [])) == length(coalescelist(v.source_ips, [])) &&
+            length(setsubtract(try(existing.properties.sourceAddressPrefixes, []), coalescelist(v.source_ips, []))) == 0 &&
+            length(setsubtract(coalescelist(v.source_ips, []), try(existing.properties.sourceAddressPrefixes, []))) == 0 &&
+            length(try(existing.properties.destinationAddressPrefixes, [])) == length(coalescelist(v.destination_ips, [])) &&
+            length(setsubtract(try(existing.properties.destinationAddressPrefixes, []), coalescelist(v.destination_ips, []))) == 0 &&
+            length(setsubtract(coalescelist(v.destination_ips, []), try(existing.properties.destinationAddressPrefixes, []))) == 0 &&
 
-            length(existing.properties.destinationPortRanges) == length(v.ports) &&
-            length(setsubtract(existing.properties.destinationPortRanges, v.ports)) == 0 &&
-            length(setsubtract(v.ports, existing.properties.destinationPortRanges)) == 0 &&
-            lower(existing.properties.protocol) == lower(v.protocol) &&
-            lower(existing.properties.access) == lower(v.access) &&
-            lower(existing.properties.sourcePortRange) == lower(v.source_port_range)
+            length(try(existing.properties.destinationPortRanges, [])) == length(coalescelist(v.ports, [])) &&
+            length(setsubtract(try(existing.properties.destinationPortRanges, []), coalescelist(v.ports, []))) == 0 &&
+            length(setsubtract(coalescelist(v.ports, []), try(existing.properties.destinationPortRanges, []))) == 0 &&
+            lower(try(existing.properties.protocol, "")) == lower(v.protocol) &&
+            lower(try(existing.properties.access, "")) == lower(v.access) &&
+            lower(try(existing.properties.sourcePortRange, "")) == lower(v.source_port_range) &&
+            (lower(v.protocol) == "icmp" ? lower(try(existing.properties.destinationPortRange, "")) == "*" : true) &&
+            (v.source_service_tag != null ? lower(try(existing.properties.sourceAddressPrefix, "")) == lower(v.source_service_tag) : true)
           ][0],
           null
         )
@@ -200,19 +208,23 @@ locals {
               for existing in local.destination_nsg_rules :
               existing.properties.priority
               if existing.name == "inbound-${v.workload}-${v.protocol}" &&
-              length(existing.properties.sourceAddressPrefixes) == length(v.source_ips) &&
-              length(setsubtract(existing.properties.sourceAddressPrefixes, v.source_ips)) == 0 &&
-              length(setsubtract(v.source_ips, existing.properties.sourceAddressPrefixes)) == 0 &&
-              length(existing.properties.destinationAddressPrefixes) == length(v.destination_ips) &&
-              length(setsubtract(existing.properties.destinationAddressPrefixes, v.destination_ips)) == 0 &&
-              length(setsubtract(v.destination_ips, existing.properties.destinationAddressPrefixes)) == 0 &&
+              length(try(existing.properties.sourceAddressPrefixes, [])) == length(coalescelist(v.source_ips, [])) &&
+              length(setsubtract(try(existing.properties.sourceAddressPrefixes, []), coalescelist(v.source_ips, []))) == 0 &&
+              length(setsubtract(coalescelist(v.source_ips, []), try(existing.properties.sourceAddressPrefixes, []))) == 0 &&
+              length(try(existing.properties.destinationAddressPrefixes, [])) == length(coalescelist(v.destination_ips, [])) &&
+              length(setsubtract(try(existing.properties.destinationAddressPrefixes, []), coalescelist(v.destination_ips, []))) == 0 &&
+              length(setsubtract(coalescelist(v.destination_ips, []), try(existing.properties.destinationAddressPrefixes, []))) == 0 &&
 
-              length(existing.properties.destinationPortRanges) == length(v.ports) &&
-              length(setsubtract(existing.properties.destinationPortRanges, v.ports)) == 0 &&
-              length(setsubtract(v.ports, existing.properties.destinationPortRanges)) == 0 &&
-              lower(existing.properties.protocol) == lower(v.protocol) &&
-              lower(existing.properties.access) == lower(v.access) &&
-              lower(existing.properties.sourcePortRange) == lower(v.source_port_range)
+              length(try(existing.properties.destinationPortRanges, [])) == length(coalescelist(v.ports, [])) &&
+              length(setsubtract(try(existing.properties.destinationPortRanges, []), coalescelist(v.ports, []))) == 0 &&
+              length(setsubtract(coalescelist(v.ports, []), try(existing.properties.destinationPortRanges, []))) == 0 &&
+              lower(try(existing.properties.protocol, "")) == lower(v.protocol) &&
+              lower(try(existing.properties.access, "")) == lower(v.access) &&
+              lower(try(existing.properties.sourcePortRange, "")) == lower(v.source_port_range) &&
+              (lower(v.protocol) == "icmp" ? lower(try(existing.properties.destinationPortRange, "")) == "*" : true) &&
+              (v.source_service_tag != null ? lower(try(existing.properties.sourceAddressPrefix, "")) == lower(v.source_service_tag) : true)
+
+
             ][0],
             # If not found, assign a new priority if it's in range, else null
             (local.new_rules_destination_with_index[k].index + local.destination_nsg_highest_priority + 1) <= var.priority_range.destination_end &&
@@ -249,6 +261,7 @@ resource "azapi_resource" "outbound" {
       destinationPortRange       = each.value.protocol == "Icmp" ? "*" : null
       sourceAddressPrefixes      = each.value.source_ips
       destinationAddressPrefixes = each.value.destination_ips
+      destinationAddressPrefix   = each.value.destination_service_tag != null ? each.value.destination_service_tag : null
     }
   }
 
@@ -288,6 +301,7 @@ resource "azapi_resource" "inbound" {
       destinationPortRanges      = each.value.protocol == "Icmp" ? [] : each.value.ports
       destinationPortRange       = each.value.protocol == "Icmp" ? "*" : null
       sourceAddressPrefixes      = each.value.source_ips
+      sourceAddressPrefix        = each.value.source_service_tag != null ? each.value.source_service_tag : null
       destinationAddressPrefixes = each.value.destination_ips
     }
   }

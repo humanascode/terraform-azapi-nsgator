@@ -31,13 +31,40 @@ NSGator simplifies Azure NSG rule management by providing:
 
 ## Quick Start
 
-For a complete working example, see the [basic example](examples/basic-example/main.tf) in the examples directory.
+See the [basic example](examples/basic-example/main.tf) for a full working configuration.
 
-Just:
-- Copy the main.tf file
-- Update your subscription ID under the `azurerm` provider block
-- Run `terraform init` to initialize the module
-- Run `terraform apply` to create the NSG rules
+Steps:
+1. Create (or reference) your NSGs using the AzAPI or Azurerm provider.
+2. Configure provider aliases if you target different subscriptions (see `terraform.tf`).
+3. Add the module block with `source`, priority ranges, and rules.
+4. Run `terraform init` then `terraform apply`.
+
+Minimal module usage:
+```hcl
+module "nsgator" {
+  source = "../" # or registry source
+
+  source_nsg_id      = azurerm_network_security_group.source.id
+  destination_nsg_id = azurerm_network_security_group.destination.id
+
+  priority_range = {
+    source_start      = 1000
+    source_end        = 1100
+    destination_start = 2000
+    destination_end   = 2100
+  }
+
+  rules = {
+    web = {
+      source_ips      = ["10.1.1.0/24"]
+      destination_ips = ["10.2.1.0/24"]
+      ports           = ["80"]
+      protocol        = "Tcp"
+      workload        = "web"
+    }
+  }
+}
+```
 
 
 ## Rule Naming Convention
@@ -58,14 +85,19 @@ This naming convention helps identify rule direction and purpose at a glance.
 
 ## Validation and Error Handling
 
-The module includes comprehensive validation to catch common configuration errors:
+The module enforces extensive input validation to surface errors early:
 
-- **Required Fields**: Validates that at least one NSG ID is provided
-- **Priority Ranges**: Ensures priority ranges are between 100-4096 and source_start < source_end
-- **Protocol Validation**: Checks that protocol is one of the supported values
-- **Unique Workloads**: Prevents duplicate workload names across all rules
-- **Port Requirements**: Validates that ports are specified for non-ICMP protocols and omitted for ICMP
-- **Detailed Error Messages**: Provides clear, actionable error messages with visual formatting for easy identification
+- At least one of `source_nsg_id` or `destination_nsg_id` must be provided.
+- Priority range fields required (and validated 100–4096, start < end) only for the side whose NSG ID is provided.
+- Protocol must be one of: `Tcp`, `Udp`, `Icmp`, `Esp`, `Ah`, `*`.
+- Workload names must be unique (used in rule naming).
+- ICMP rules must NOT declare ports; non‑ICMP rules must declare at least one port.
+- Exactly one of `source_ips` or `source_service_tag` must be supplied (not both, not neither) per rule.
+- Exactly one of `destination_ips` or `destination_service_tag` must be supplied (not both, not neither) per rule.
+- A service tag cannot be combined with the corresponding NSG ID for that direction (e.g. `source_service_tag` with `source_nsg_id`).
+- When service tag is provided the matching IP set must be omitted (and vice versa).
+
+Rules that fail validation will stop planning with a clear multi‑line error message. Rules whose computed priority would fall outside the configured range are skipped via resource precondition failure.
 
 
 ## Configuration Reference
@@ -77,7 +109,7 @@ The module includes comprehensive validation to catch common configuration error
 | destination_nsg_id    | The ID of the destination NSG                                     | `string`                                                             | `null`  |  no\*    |
 | create_outbound_rules | Flag to create outbound rules                                      | `bool`                                                               | `true`  |   no     |
 | create_inbound_rules  | Flag to create inbound rules                                       | `bool`                                                               | `true`  |   no     |
-| rules                 | Map of rules to create                                             | <pre>map(object({<br>  access            = optional(string, "Allow")<br>  source_ips        = set(string)<br>  destination_ips   = set(string)<br>  ports             = optional(set(string))<br>  protocol          = string<br>  workload          = string<br>  source_port_range = optional(string, "*")<br>}))</pre> | n/a     |   yes    |
+| rules                 | Map of rules to create (see rules object details)                  | <pre>map(object({<br>  access                  = optional(string, "Allow")<br>  source_ips              = optional(set(string))        # required if source_service_tag unset<br>  destination_ips         = optional(set(string))        # required if destination_service_tag unset<br>  ports                   = optional(set(string))        # required unless protocol == Icmp<br>  destination_service_tag = optional(string, null)<br>  protocol                = string<br>  workload                = string                       # unique<br>  source_port_range       = optional(string, "*")<br>  source_service_tag      = optional(string, null)<br>}))</pre> | n/a     |   yes    |
 | priority_range        | Priority ranges for source and destination NSGs                   | <pre>object({<br>  source_start      = optional(number, 0)<br>  source_end        = optional(number, 0)<br>  destination_start = optional(number, 0)<br>  destination_end   = optional(number, 0)<br>})</pre> | n/a     |   yes    |
 
 \*At least one of `source_nsg_id` or `destination_nsg_id` must be provided.
@@ -95,34 +127,62 @@ priority_range = {
 
 ### rules Object
 
+The module supports traditional IP / CIDR based rules as well as Azure Service Tags for the *source* or *destination* side of a flow (but not both sides in the same direction). A rule replaces address *sets* with a single service tag when a `*_service_tag` attribute is provided.
+
 ```hcl
 rules = {
-  "rule-name" = {
-    access            = "Allow"                       # Allow or Deny (optional, defaults to Allow)
-    source_ips        = ["10.1.1.0/24", "10.1.2.10"] # Set of source IP addresses/CIDR ranges
-    destination_ips   = ["10.2.1.0/24", "10.2.2.20"] # Set of destination IP addresses/CIDR ranges
-    ports             = ["80", "443"]                 # Set of destination ports (optional for ICMP protocol)
-    protocol          = "Tcp"                         # Protocol: Tcp, Udp, Icmp, Esp, Ah, or *
-    workload          = "web"                         # Workload identifier for rule naming (must be unique)
-    source_port_range = "*"                           # Source port range (optional, defaults to "*")
+  # Standard TCP rule
+  web = {
+    source_ips        = ["10.1.1.0/24"]
+    destination_ips   = ["10.2.1.0/24"]
+    ports             = ["80", "443"]
+    protocol          = "Tcp"
+    workload          = "web"
   }
-  
-  # Example ICMP rule (ports not required)
-  "ping" = {
+
+  # Outbound using destination service tag
+  reach_aad = {
+    source_ips              = ["10.1.1.0/24"]
+    destination_service_tag = "AzureActiveDirectory"
+    ports                   = ["443"]
+    protocol                = "Tcp"
+    workload                = "aad"
+    access                  = "Allow"
+  }
+
+  # Inbound using source service tag
+  from_storage = {
+    source_service_tag = "Storage"
+    destination_ips    = ["10.2.1.10/32"]
+    ports              = ["443"]
+    protocol           = "Tcp"
+    workload           = "storage-ingress"
+  }
+
+  # ICMP (no ports)
+  ping = {
     source_ips      = ["10.1.1.0/24"]
     destination_ips = ["10.2.1.0/24"]
     protocol        = "Icmp"
     workload        = "ping"
-    access          = "Allow"
   }
 }
 ```
 
-**Important Notes:**
-- Each rule must have a **unique** `workload` value
-- For ICMP protocol, `ports` should not be specified (will be ignored)
-- For all other protocols, `ports` must be specified
-- Protocol values are case-sensitive: use "Tcp", "Udp", "Icmp", "Esp", "Ah", or "*"
+**Important Notes / Validation Rules:**
+1. `workload` must be unique across all rules.
+2. ICMP rules must NOT set `ports`. All other protocols must set at least one port.
+3. If `source_service_tag` is provided:
+   - `source_ips` must NOT be set.
+   - `source_ips` must be set when `source_service_tag` is NOT provided.
+   - You must NOT provide `source_service_tag` together with a `source_nsg_id` (the service tag represents an external source, not another managed NSG).
+4. If `destination_service_tag` is provided:
+   - `destination_ips` must NOT be set.
+   - `destination_ips` must be set when `destination_service_tag` is NOT provided.
+   - You must NOT provide `destination_service_tag` together with a `destination_nsg_id`.
+5. Service tags are mutually exclusive with address lists on the same side of a rule.
+6. Protocol must be one of: `Tcp`, `Udp`, `Icmp`, `Esp`, `Ah`, `*` (case sensitive as shown).
+7. Priorities are auto-assigned only when they fall inside the configured range; out-of-range rules are skipped with a precondition error.
 
 ## Outputs
 
@@ -136,12 +196,27 @@ NSGator automatically adds tags to managed NSGs for tracking and governance:
 
 These tags help identify which priority ranges are managed by Terraform and prevent conflicts with manually created rules.
 
+## Service Tags Support
+
+You can use Azure Service Tags instead of explicit IP/CIDR sets for EITHER the source side (inbound rules) or destination side (outbound rules) of a flow:
+
+- Use `source_service_tag` to represent the origin (e.g. `Storage`, `AzureMonitor`) when creating inbound rules to your destination NSG.
+- Use `destination_service_tag` to represent the target (e.g. `AzureActiveDirectory`, `KeyVault`) when creating outbound rules from your source NSG.
+
+Design constraints enforced by validation:
+- A service tag replaces the corresponding `*_ips` collection.
+- Do not supply `source_service_tag` together with `source_ips` or a `source_nsg_id`.
+- Do not supply `destination_service_tag` together with `destination_ips` or a `destination_nsg_id`.
+
+This pattern lets you model flows where one side is an Azure platform service and the other side is a controlled address space.
+
 ## Limitations
 
-- **Priority Ranges**: Rules are skipped if they would exceed the configured priority range (100-4096)
-- **Unique Workloads**: Each rule must have a unique workload identifier
-- **Protocol-Specific Ports**: ICMP rules don't require ports; all other protocols do
-- **Cross-Subscription**: Requires proper provider configuration for cross-subscription deployments
+- **Priority Ranges**: Rules are skipped if they would exceed the configured priority range (100-4096).
+- **Unique Workloads**: Each rule must have a unique workload identifier.
+- **Protocol-Specific Ports**: ICMP rules don't require ports; all other protocols do.
+- **Service Tag Exclusivity**: Service tags cannot be combined with IP sets or NSG IDs on the same side of the rule.
+- **Cross-Subscription**: Requires proper provider configuration for cross-subscription deployments.
 
 ## Cross-Subscription deployment
 - NSGs can be deployed across different subscriptions, when calling the module, provide 2 providers in the module block:
