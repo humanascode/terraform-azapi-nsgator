@@ -49,8 +49,8 @@ variable "rules" {
 DESCRIPTION
   type = map(object({
     access                  = optional(string, "Allow")
-    source_ips              = optional(set(string))
-    destination_ips         = optional(set(string))
+    source_ips              = optional(set(string), [])
+    destination_ips         = optional(set(string), [])
     ports                   = optional(set(string))
     destination_service_tag = optional(string, null)
     protocol                = string
@@ -233,4 +233,10 @@ ERROR
 priority_range.destination_start and priority_range.destination_end must be between 100 and 4096, inclusive.
 ERROR
   }
+}
+
+variable "create_tags" {
+  type    = bool
+  default = true
+  description = "Whether to create tags for the NSGs with the managed priority ranges. Default is true."
 }

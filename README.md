@@ -8,7 +8,7 @@ A Terraform module for managing Network Security Group (NSG) rules in Azure with
 
 NSGator is a Terraform module that automates Azure NSG rule management by handling priority assignment, detecting duplicates, and ensuring consistent rule deployment across network security groups.
 
-Its input is a map of objcets, each object reprsents a connectivity path including source and destination IPs, ports, protocols, and a workload identifier. The module takes care of creating inbound and outbound rules as needed and manages priorities intelligently to avoid conflicts and ensure zero-downtime updates.
+Its input is a map of objects; each object represents a connectivity path including source / destination IPs or service tags, ports (if required), protocol, and a workload identifier. The module creates inbound and outbound rules as needed and manages priorities intelligently to avoid conflicts and ensure zero-downtime style updates.
 
 ## Who is it for?
 
@@ -26,7 +26,7 @@ NSGator simplifies Azure NSG rule management by providing:
 
 | Name | Version |
 |------|---------|
-| terraform | >= 1.12 |
+| terraform | >= 1.3 |
 | azapi | >= 2.0 |
 
 ## Quick Start
@@ -109,6 +109,7 @@ Rules that fail validation will stop planning with a clear multi‑line error me
 | destination_nsg_id    | The ID of the destination NSG                                     | `string`                                                             | `null`  |  no\*    |
 | create_outbound_rules | Flag to create outbound rules                                      | `bool`                                                               | `true`  |   no     |
 | create_inbound_rules  | Flag to create inbound rules                                       | `bool`                                                               | `true`  |   no     |
+| create_tags           | Whether to tag NSGs with managed priority range metadata          | `bool`                                                               | `true`  |   no     |
 | rules                 | Map of rules to create (see rules object details)                  | <pre>map(object({<br>  access                  = optional(string, "Allow")<br>  source_ips              = optional(set(string))        # required if source_service_tag unset<br>  destination_ips         = optional(set(string))        # required if destination_service_tag unset<br>  ports                   = optional(set(string))        # required unless protocol == Icmp<br>  destination_service_tag = optional(string, null)<br>  protocol                = string<br>  workload                = string                       # unique<br>  source_port_range       = optional(string, "*")<br>  source_service_tag      = optional(string, null)<br>}))</pre> | n/a     |   yes    |
 | priority_range        | Priority ranges for source and destination NSGs                   | <pre>object({<br>  source_start      = optional(number, 0)<br>  source_end        = optional(number, 0)<br>  destination_start = optional(number, 0)<br>  destination_end   = optional(number, 0)<br>})</pre> | n/a     |   yes    |
 
@@ -186,11 +187,30 @@ rules = {
 
 ## Outputs
 
-This module does not expose outputs. Rule creation status can be monitored through Terraform plan/apply output.
+| Name | Type | Description |
+|------|------|-------------|
+| `outbound_rules` | map(object) | Map keyed by rule key of outbound NSG rule metadata (id, name, priority, access, protocol, direction). Empty if outbound disabled or no `source_nsg_id`. |
+| `inbound_rules`  | map(object) | Map keyed by rule key of inbound NSG rule metadata (id, name, priority, access, protocol, direction). Empty if inbound disabled or no `destination_nsg_id`. |
+
+Example: list all created inbound rule priorities
+```hcl
+output "inbound_priorities" {
+  value = [for r in module.nsgator.inbound_rules : r.priority]
+}
+```
+
+Example: map of outbound rule names to protocols
+```hcl
+output "outbound_protocols" {
+  value = { for k, r in module.nsgator.outbound_rules : k => r.protocol }
+}
+```
+
+If you need additional outputs (e.g., priority ranges or NSG IDs) you can expose them by adding outputs to `outputs.tf`.
 
 ## Automatic Tagging
 
-NSGator automatically adds tags to managed NSGs for tracking and governance:
+NSGator can add tags to managed NSGs for tracking and governance (disable via `create_tags = false`):
 - `managed_by_terraform_outbound_priority_range`: Priority range for outbound rules (e.g., "1000-1100")
 - `managed_by_terraform_inbound_priority_range`: Priority range for inbound rules (e.g., "2000-2100")
 
