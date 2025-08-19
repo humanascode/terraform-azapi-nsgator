@@ -251,7 +251,6 @@ resource "azapi_resource" "outbound" {
   body = {
 
     properties = {
-
       priority                   = each.value.priority
       direction                  = "Outbound"
       access                     = each.value.access
@@ -265,6 +264,13 @@ resource "azapi_resource" "outbound" {
     }
   }
 
+  response_export_values = [
+    "id",
+    "name",
+    "properties.priority",
+    "properties.access",
+    "properties.protocol"
+  ]
   lifecycle {
     ignore_changes = [body.properties.priority]
     precondition {
@@ -291,6 +297,7 @@ resource "azapi_resource" "inbound" {
   name      = "inbound-${each.value.workload}-${each.value.protocol}"
   parent_id = var.destination_nsg_id
 
+
   body = {
     properties = {
       priority                   = each.value.priority
@@ -305,6 +312,14 @@ resource "azapi_resource" "inbound" {
       destinationAddressPrefixes = each.value.destination_ips
     }
   }
+
+    response_export_values = [
+    "id",
+    "name",
+    "properties.priority",
+    "properties.access",
+    "properties.protocol"
+  ]
 
   lifecycle {
     ignore_changes = [body.properties.priority]
@@ -330,7 +345,7 @@ locals {
 
 resource "azapi_update_resource" "source_nsg_tag" {
   type        = "Microsoft.Network/networkSecurityGroups@2024-05-01"
-  count       = var.create_outbound_rules ? 1 : 0
+  count       = var.create_outbound_rules && var.create_tags ? 1 : 0
   resource_id = var.source_nsg_id
   provider    = azapi.source
 
@@ -346,7 +361,7 @@ resource "azapi_update_resource" "source_nsg_tag" {
 
 resource "azapi_update_resource" "destination_nsg_tag" {
   type        = "Microsoft.Network/networkSecurityGroups@2024-05-01"
-  count       = var.create_inbound_rules ? 1 : 0
+  count       = var.create_inbound_rules && var.create_tags ? 1 : 0
   resource_id = var.destination_nsg_id
   provider    = azapi.destination
 
