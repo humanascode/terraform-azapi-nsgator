@@ -48,23 +48,23 @@ variable "rules" {
   If protocol is not "Icmp", ports must be specified.
 DESCRIPTION
   type = map(object({
-    access            = optional(string, "Allow")
-    source_ips        = optional(set(string))
-    destination_ips   = optional(set(string))
-    ports             = optional(set(string))
+    access                  = optional(string, "Allow")
+    source_ips              = optional(set(string))
+    destination_ips         = optional(set(string))
+    ports                   = optional(set(string))
     destination_service_tag = optional(string, null)
-    protocol          = string
-    workload          = string
-    source_port_range = optional(string, "*")
-    source_service_tag = optional(string, null)
+    protocol                = string
+    workload                = string
+    source_port_range       = optional(string, "*")
+    source_service_tag      = optional(string, null)
   }))
 
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          rule.source_service_tag != null ? var.source_nsg_id == null : true
-        )
+      (
+        rule.source_service_tag != null ? var.source_nsg_id == null : true
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -75,9 +75,9 @@ DESCRIPTION
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          rule.destination_service_tag != null ? var.destination_nsg_id == null : true
-        )
+      (
+        rule.destination_service_tag != null ? var.destination_nsg_id == null : true
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -88,11 +88,11 @@ DESCRIPTION
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          rule.destination_service_tag != null ?
-            (rule.destination_ips == null || length(rule.destination_ips) == 0) :
-            true
-        )
+      (
+        rule.destination_service_tag != null ?
+        (rule.destination_ips == null || length(rule.destination_ips) == 0) :
+        true
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -103,11 +103,11 @@ DESCRIPTION
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          rule.source_service_tag == null ?
-            (rule.source_ips != null && length(rule.source_ips) > 0) :
-            true
-        )
+      (
+        rule.source_service_tag != null ?
+        (rule.source_ips == null || length(rule.source_ips) == 0) :
+        true
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -118,26 +118,9 @@ DESCRIPTION
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          rule.source_service_tag != null ?
-            (rule.source_ips == null || length(rule.source_ips) == 0) :
-            true
-        )
-    ])
-    error_message = <<ERROR
-  *********************VALIDATION ERROR*********************
-  If source_service_tag is provided, source_ips must not be specified.
-  ERROR
-  }
-
-  validation {
-    condition = alltrue([
-      for rule in values(var.rules) :
-        (
-          rule.source_service_tag == null ?
-            (rule.source_ips != null && length(rule.source_ips) > 0) :
-            true
-        )
+      (
+  rule.source_service_tag == null ? (rule.source_ips != null && length(rule.source_ips) > 0) : true
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -145,11 +128,11 @@ DESCRIPTION
   ERROR
   }
 
-  
+
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        contains(["Tcp", "Udp", "Icmp", "Esp", "Ah", "*"], rule.protocol)
+      contains(["Tcp", "Udp", "Icmp", "Esp", "Ah", "*"], rule.protocol)
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -172,11 +155,11 @@ DESCRIPTION
   validation {
     condition = alltrue([
       for rule in values(var.rules) :
-        (
-          lower(rule.protocol) == "icmp" ?
-            (rule.ports == null || length(rule.ports) == 0) :
-            (rule.ports != null && length(rule.ports) > 0)
-        )
+      (
+        lower(rule.protocol) == "icmp" ?
+        (rule.ports == null || length(rule.ports) == 0) :
+        (rule.ports != null && length(rule.ports) > 0)
+      )
     ])
     error_message = <<ERROR
   *********************VALIDATION ERROR*********************
@@ -193,7 +176,7 @@ variable "priority_range" {
     destination_start = optional(number, 0)
     destination_end   = optional(number, 0)
   })
-  nullable = false
+  nullable    = false
   description = <<DESCRIPTION
   Priority range for the NSG rules.
   This defines the allowed priority range for the NSG rules to be created or updated.
