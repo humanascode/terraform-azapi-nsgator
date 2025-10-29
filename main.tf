@@ -280,10 +280,10 @@ resource "azapi_resource" "outbound" {
   }
 
   retry = {
-    error_message_regex  = ["NotFound", "AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
+    error_message_regex  = ["AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
     interval_seconds     = 5
     randomization_factor = 0.5
-    multiplier           = 2
+    max_interval_seconds = 20
   }
 
 }
@@ -329,10 +329,10 @@ resource "azapi_resource" "inbound" {
     }
   }
   retry = {
-    error_message_regex  = ["NotFound", "AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
+    error_message_regex  = ["AnotherOperationInProgress", "RetryableError", "CanceledAndSupersededDueToAnotherOperation"]
     interval_seconds     = 5
     randomization_factor = 0.5
-    multiplier           = 2
+    max_interval_seconds = 20
   }
 }
 
